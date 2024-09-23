@@ -78,8 +78,50 @@ out_hom <- GxEMM::GxEMM(y, X, K, Z, gtype = 'hom', ldak_loc = ldak_loc)
 # 2) 'II model' allows environment-specific spatial variance and noise but assumes that th ese values are constant across every environment.
 # 3) 'III allows the spatial and noise levels to freely vary between environments.
 
+
+fitlmm <- function(y, X, K, model, ws, rescaling) {
+  # 1. fitting
+  if (model == "s") {
+    # spatial_model
+    fit <- qgg::greml(y = y, X = cbind(1, X), GRM = list(K))
+  } else if (model == "sc") {
+    cat("[", format(Sys.time()), "]", " - Rescaling 'spatial x celltype' kernel\n", sep = "")
+    # spatial celltype model
+    K2 <- K * (Z %*% t(Z))
+    w <- mean(diag(K2))
+    K2 <- K2 / w
+    ws <- c(ws, 1 - ncol(X) / nrow(X))
+    fit <- qgg::greml(y = y, X = cbind(1, X), GRM = list(K, K2))
+  }
+  vc <- fit$theta
+  asd <- fit$asd
+
+  # rescaling
+  # TO DO: we need to check the rescaling
+  if (rescaling == TRUE) {
+    vc <- vc / ws
+    # sig2ses <- sig2ses / w
+    asd <- diag(1 / ws) %*% asd %*% diag(1 / ws)
+  }
+
+  # names of output
+  if (model == "s") {
+    stype <- "hom"
+    etype <- "hom"
+    names(vc) <- c("vs", "ve")
+  } else if (model == "sc") {
+    stype <- "iid"
+    etype <- "hom"
+    names(vc) <- c("vs", "vsc", "ve")
+  } else {
+    warning("Please set 'modle = s' or 'modle = sc'")
+  }
+
+  return(list(vc = vc, asd = asd, stype = stype, etype = etype))
+}
+
 source("R/sig2map.R")
-svglmm <- function(y, X, K, model = c('s', 'sc')[1], resfull = FALSE) {
+svglmm <- function(y, X, K, model = c('s', 'sc')[1], rescaling = TRUE, resfull = FALSE) {
   y <- as.matrix(y)
   Z <- as.matrix(Z)
   X <- as.matrix(X)
@@ -89,46 +131,23 @@ svglmm <- function(y, X, K, model = c('s', 'sc')[1], resfull = FALSE) {
   stopifnot(all.equal(nrow(y), nrow(K)))
   stopifnot(all.equal(nrow(y), nrow(Z)))
 
-  # rescaling
+  # 0. rescaling
   # TO DO: we need to check the rescaling
-  w <- mean(diag(K))
-  K <- K / w
-  ws <- c(w, 1 - ncol(X) / nrow(X))
-
-  if (model == "s") {
-    # spatial_model
-    fit <- qgg::greml(y = y, X = cbind(1, X), GRM = list(K))
-  
-  } else if (model == "sc") {
-    # spatial celltype model
-    K2 <- K * (Z %*% t(Z))
-    w <- mean(diag(K2))
-    K2 <- K2 / w
-    ws <- c(ws, 1 - ncol(X) / nrow(X))
-    fit <- qgg::greml(y = y, X = cbind(1, X), GRM = list(K, K2))
+  if (rescaling == TRUE) {
+    cat("[", format(Sys.time()), "]", " - Rescaling 'spatial' kernel\n", sep = "")
+    w <- mean(diag(K))
+    K <- K / w
+    ws <- c(w, 1 - ncol(X) / nrow(X))
   }
-  vc <- fit$theta
-  asd <- fit$asd 
-  
+
+  # 1. fitting
+  cat("[", format(Sys.time()), "]", " - Fitting liner mixed model\n", sep = "")
+  res_fit <- fitlmm(y, X, K, model, ws, rescaling)
+  vc <- res_fit$vc
+  asd <- res_fit$asd
   browser()
 
-  # rescaling
-  # TO DO: we need to check the rescaling
-  vc <- vc / ws
-  # sig2ses <- sig2ses / w
-  asd <- diag(1 / ws) %*% asd %*% diag(1 / ws)
-
-  if (model == "s") {
-    gtype <- etype <- "hom"
-    names(vc) <- c("vs", "ve")
-  } else if (model == "sc") {
-    gtype <- "iid"
-    etype <- "hom"
-    names(vc) <- c("vs", "vsc", "ve")
-  } else {
-    warning("Please set 'modle = s' or 'modle = sc'")
-  }
-
+  # 2. test
   sig2out <- sig2map(vc, gtype, etype, K0)
   h2Covmat <- msm::deltamethod(sig2out$form, vc, asd, ses = FALSE)
 
@@ -148,8 +167,8 @@ svglmm <- function(y, X, K, model = c('s', 'sc')[1], resfull = FALSE) {
   return(final_res)
 }
 
-# svglmm(y, X, K, model = "s")
-svglmm(y, X, K, model = "sc")
+svglmm(y, X, K, model = "s")
+# svglmm(y, X, K, model = "sc")
 
 
 
