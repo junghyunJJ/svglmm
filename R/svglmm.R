@@ -1,6 +1,6 @@
-# 1) 'spatial_model' is equivalent to 'spatialDE' and models only the mean effects of the environment.
-# 2) 'II model' allows environment-specific spatial variance and noise but assumes that th ese values are constant across every environment.
-# 3) 'III allows the spatial and noise levels to freely vary between environments.
+# 1) 'hom' is equivalent to 'spatialDE' and models only the mean effects of the environment.
+# 2) 'iid' allows cancer-specific (i.g., outpur from METI) spatial variance and noise but assumes that th ese values are constant across every environment.
+# 3) 'free' allows the spatial and noise levels to freely vary between cancer.
 
 
 # check_K <- function(K, X0) {
@@ -13,8 +13,6 @@
 fitlmm <- function(y, X, K, df, stype, etype, rescaling) {
 
   X <- cbind(1, X)
-
-  cat("[", format(Sys.time()), "]", " - Rescaling 'spatial' kernel\n", sep = "")
   # K <- check_K(K, X)
   ws <- mean(diag(K))
   K <- K / ws
@@ -57,11 +55,6 @@ fitlmm <- function(y, X, K, df, stype, etype, rescaling) {
 
   fit <- qgg::greml(y = y, X = X, GRM = K_list)
   vc <- fit$theta
-  # browser()
-  # if (stype == 'hom') {
-  #   names(vc) <- c("v_s", "v_e")
-  # }
-  # names(vc) <- c("v_s", paste0("v_sc", seq(1, length(vc) - 2, 1)), "v_e")
   asd <- fit$asd
 
   # rescaling
@@ -69,7 +62,6 @@ fitlmm <- function(y, X, K, df, stype, etype, rescaling) {
   ws <- c(ws, 1 - ncol(X) / nrow(X))
   if (rescaling) {
     vc <- vc / ws
-    # sig2ses <- sig2ses / w
     asd <- diag(1 / ws) %*% asd %*% diag(1 / ws)
   }
 
