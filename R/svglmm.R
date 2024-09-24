@@ -9,9 +9,9 @@
 # }
 
 check_K <- function(K, X0) {
-  Xa <- X0 %*% solve(t(X0) %*% X0)
-  KXXa <- (K %*% X0) %*% t(Xa)
-  K <- K - KXXa - t(KXXa) + X0 %*% (t(Xa) %*% (KXXa))
+  # Xa <- X0 %*% solve(t(X0) %*% X0)
+  # KXXa <- (K %*% X0) %*% t(Xa)
+  # K <- K - KXXa - t(KXXa) + X0 %*% (t(Xa) %*% (KXXa))
 
  
   # keep <- which(lower.tri(K, diag = TRUE), arr.ind = TRUE)
@@ -54,12 +54,12 @@ fitlmm <- function(y, X, K, df, stype, etype, rescaling) {
       ws <- c(ws, w)
     }
   }
-
+  
   # etype
   if (etype == "free") {
     cat("[", format(Sys.time()), "]", " - Rescaling 'etype = free' kernel\n", sep = "")
     for (k in seq_len(df - 1)) {
-      K3 <- Z[, k]^2 # I * (Zk Zk^T)
+      K3 <- diag(Z[, k]^2) # I * (Zk Zk^T)
       K3 <- check_K(K3, X)
     
       w	<- mean(diag(K3))
@@ -68,12 +68,10 @@ fitlmm <- function(y, X, K, df, stype, etype, rescaling) {
       ws <- c(ws, w)
     }
   }
-  browser()
 
   fit <- qgg::greml(y = y, X = X, GRM = K_list)
   vc <- fit$theta
   asd <- fit$asd
-  browser()
 
   # rescaling
   # TO DO: we need to check the rescaling
@@ -115,6 +113,7 @@ cal_cov <- function(res_fit, df) {
   return(list(h2 = h2, h2Covmat = h2Covmat))
 }
 
+#TO DO
 cal_p <- function(res_h2, model) {
   if (model == "s") {
     p <- GxEMM::Waldtest(res_h2$h2, res_h2$h2Covmat[1, 1])
@@ -126,7 +125,6 @@ cal_p <- function(res_h2, model) {
     p <- c(p, p_tot)
     names(p) <- c('s', 'sc', 'tot')
   } else {
-    #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   }
   names(p) <- paste0('p_', names(p))
   
@@ -150,11 +148,13 @@ svglmm <- function(y, X, K, stype = c('hom', 'iid', 'free')[1], etype = c('hom',
   vc <- res_fit$vc
   asd <- res_fit$asd
   
+
   # 2. cal cov matrix using Delta method
   cat("[", format(Sys.time()), "]", " - Calulating covariance matrix\n", sep = "")
   res_h2 <- cal_cov(res_fit, df)
   h2 <- res_h2$h2
   
+  browser()
   # 3. cal pvalue using Wald
   cat("[", format(Sys.time()), "]", " - Calulating p-value\n", sep = "")
   p <- cal_p(res_h2, model)
