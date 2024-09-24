@@ -12,16 +12,13 @@ check_K <- function(K, X0) {
   Xa <- X0 %*% solve(t(X0) %*% X0)
   KXXa <- (K %*% X0) %*% t(Xa)
   K <- K - KXXa - t(KXXa) + X0 %*% (t(Xa) %*% (KXXa))
-  w	<- mean(diag(K))
-  K <- K / w
+
  
-  keep <- which(lower.tri(K, diag = TRUE), arr.ind = TRUE)
-  non_mis <- rep(1, length(keep[, 1]))
-  keep <- cbind(keep, non_mis, K[keep])
-  keep <- keep[order(keep[, 1], keep[, 2]), ]
-  browser()
-  #!!!!!!!!!
-  return(list(K = keep, w = w))
+  # keep <- which(lower.tri(K, diag = TRUE), arr.ind = TRUE)
+  # non_mis <- rep(1, length(keep[, 1]))
+  # keep <- cbind(keep, non_mis, K[keep])
+  # keep <- keep[order(keep[, 1], keep[, 2]), ]
+  return(K)
 }
 
 fitlmm <- function(y, X, K, df, stype, etype, rescaling) {
@@ -38,19 +35,23 @@ fitlmm <- function(y, X, K, df, stype, etype, rescaling) {
   if (stype == "iid") {
     cat("[", format(Sys.time()), "]", " - Rescaling 'stype = iid' kernel\n", sep = "")
     K2 <- K * tcrossprod(Z) # K * (Z Z^T)
-    res_check_K2 <- check_K(K2, X)
-    
-    K_list <- append(K_list, list(res_check_K2$K))
-    ws <- c(ws, res_check_K2$w)
+    K2 <- check_K(K2, X)
+
+    w	<- mean(diag(K2))
+    K2 <- K2 / w
+    K_list <- append(K_list, list(K2))
+    ws <- c(ws, w)
   } else if (stype == "free") {
     cat("[", format(Sys.time()), "]", " - Rescaling 'stype = free' kernel\n", sep = "")
     for (k in seq_len(df)) {
       sel_Z <- Z[, k, drop = FALSE]
       K2 <- K * tcrossprod(sel_Z) # K * (Zk Zk^T)
-      res_check_K2 <- check_K(K2, X)
+      K2 <- check_K(K2, X)
     
-      K_list <- append(K_list, list(res_check_K2$K))
-      ws <- c(ws, res_check_K2$w)
+      w	<- mean(diag(K2))
+      K2 <- K2 / w
+      K_list <- append(K_list, list(K2))
+      ws <- c(ws, w)
     }
   }
 
@@ -59,10 +60,12 @@ fitlmm <- function(y, X, K, df, stype, etype, rescaling) {
     cat("[", format(Sys.time()), "]", " - Rescaling 'etype = free' kernel\n", sep = "")
     for (k in seq_len(df - 1)) {
       K3 <- Z[, k]^2 # I * (Zk Zk^T)
-      res_check_K3 <- check_K(K3, X)
+      K3 <- check_K(K3, X)
     
-      K_list <- append(K_list, list(res_check_K3$K))
-      ws <- c(ws, res_check_K3$w)
+      w	<- mean(diag(K3))
+      K3 <- K3 / w
+      K_list <- append(K_list, list(K3))
+      ws <- c(ws, w)
     }
   }
   browser()
