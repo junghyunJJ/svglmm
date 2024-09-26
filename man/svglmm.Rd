@@ -2,11 +2,11 @@
 \alias{hello}
 \title{Hello, World!}
 \usage{
-hello()
+svglmm()
 }
 \description{
 Prints 'Hello, world!'.
 }
 \examples{
-hello()
+svglmm()
 }
