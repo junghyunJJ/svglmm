@@ -1,9 +1,12 @@
-\name{hello}
-\alias{hello}
+\name{svglmm}
+\alias{svglmm}
 \title{Hello, World!}
 \usage{
-svglmm()
-}
+svglmm(y, X, K, Z, 
+  stype = c('hom', 'iid', 'free')[1], 
+  etype = c('hom', 'free')[1], 
+  rescaling = TRUE, resfull = TRUE
+)
 \description{
 Prints 'Hello, world!'.
 }
