@@ -32,12 +32,13 @@ summary_res <- function(vc, asd, df, Z, stype, etype) {
       sig2e <- vc[length(vc)]
 
       names(vc)[c(idx_v)] <- paste0("sig2s_", seq_len(length(c(idx_v))))
+
     } else if (etype == "free") {
       idx_v <- seq.int(from = 2, length.out = df)
       idx_w <- seq.int(from = (max(idx_v) + 1), to = length(vc) - 1)
 
       v <- vc[idx_v]
-      w <- c(vc[idx_w], rep(0, length(idx_w))) + vc[length(vc)]
+      w <- c(vc[idx_w], 1) + vc[length(vc)]
 
       names(v) <- paste0("sig2s_", colnames(Z))
       names(w) <- paste0("sig2e_", colnames(Z))
@@ -52,7 +53,7 @@ summary_res <- function(vc, asd, df, Z, stype, etype) {
 }
   
 
-fitlmm <- function(y, X, K, Z, df, stype, etype, rescaling) {
+fitlmm <- function(y, X, K, Z, df, stype, etype, rescaling, maxit) {
 
   X <- cbind(1, X)
   # K <- check_K(K, X)
@@ -96,7 +97,7 @@ fitlmm <- function(y, X, K, Z, df, stype, etype, rescaling) {
   }
 
   # fit lmm
-  fit <- qgg::greml(y = y, X = X, GRM = K_list)
+  fit <- qgg::greml(y = y, X = X, GRM = K_list, maxit = maxit)
   vc <- fit$theta
   asd <- fit$asd
   
@@ -156,7 +157,7 @@ cal_h2_p <- function(res_h2, stype) {
   return(p)
 }
 
-svglmm <- function(y, X, K, Z, stype = c('hom', 'iid', 'free')[1], etype = c('hom', 'free')[1], rescaling = TRUE, resfull = TRUE) {
+svglmm <- function(y, X, K, Z, stype = c('hom', 'iid', 'free')[1], etype = c('hom', 'free')[1], rescaling = TRUE, resfull = TRUE, maxit = 200) {
   y <- as.matrix(scale(y))
   Z <- as.matrix(Z)
   X <- as.matrix(X)
@@ -168,7 +169,7 @@ svglmm <- function(y, X, K, Z, stype = c('hom', 'iid', 'free')[1], etype = c('ho
 
   # fitting
   cat("[", format(Sys.time()), "]", " - Fitting liner mixed model\n", sep = "")
-  res_fit <- fitlmm(y, X, K, Z, df, stype, etype, rescaling)
+  res_fit <- fitlmm(y, X, K, Z, df, stype, etype, rescaling, fitlmm)
   sig2s <- res_fit$sig2s
   vc <- res_fit$vc
   asd <- res_fit$asd
@@ -184,7 +185,6 @@ svglmm <- function(y, X, K, Z, stype = c('hom', 'iid', 'free')[1], etype = c('ho
   # sel_idx <- seq(from = 2, length.out = length(res_fit$sig2s[2:3]))
   # GxEMM::MVWaldtest(res_fit$sig2s[sel_idx], res_fit$asd[sel_idx, sel_idx]) 
 
-
   # summary resutls
   if (resfull) {
     cat("[", format(Sys.time()), "]", " - Calulating h2 matrix\n", sep = "")
@@ -194,7 +194,7 @@ svglmm <- function(y, X, K, Z, stype = c('hom', 'iid', 'free')[1], etype = c('ho
     final_res <- list(
       sig2s = sig2s, p_sig2s = p_sig2s, sig2e = res_fit$sig2e,  
       vc = vc,
-      asd = asd, ll = as.numeric(res_fit$ll), df = (length(vc) - 1),
+      asd = asd, ll = as.numeric(res_fit$ll), df = df,
       h2 = res_h2$h2, h2Covmat = res_h2$h2Covmat, p_h2 = p_h2, 
       beta = as.numeric(res_fit$beta), v_beta = diag(as.matrix(res_fit$v_beta))
     )
@@ -202,7 +202,7 @@ svglmm <- function(y, X, K, Z, stype = c('hom', 'iid', 'free')[1], etype = c('ho
     final_res <- list(
       sig2s = sig2s, p_sig2s = p_sig2s, sig2e = res_fit$sig2e,  
       vc = vc,
-      asd = asd, ll = as.numeric(res_fit$ll), df = (length(vc) - 1)
+      asd = asd, ll = as.numeric(res_fit$ll), df = df
     )
   }
   return(final_res)
