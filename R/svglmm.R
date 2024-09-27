@@ -53,7 +53,7 @@ summary_res <- function(vc, asd, df, Z, stype, etype) {
 }
   
 
-fitlmm <- function(y, X, K, Z, df, stype, etype, rescaling, maxit) {
+fitlmm <- function(y, X, K, Z, K0, stype, etype, rescaling, maxit) {
 
   X <- cbind(1, X)
   # K <- check_K(K, X)
@@ -72,7 +72,7 @@ fitlmm <- function(y, X, K, Z, df, stype, etype, rescaling, maxit) {
     ws <- c(ws, w)
   } else if (stype == "free") {
     cat("[", format(Sys.time()), "]", " - Rescaling 'stype = free' kernel\n", sep = "")
-    for (k in seq_len(df)) {
+    for (k in seq_len(K0)) {
       sel_Z <- Z[, k, drop = FALSE]
       K2 <- K * tcrossprod(sel_Z) # K * (Zk Zk^T)
       # K2 <- check_K(K2, X)
@@ -86,7 +86,7 @@ fitlmm <- function(y, X, K, Z, df, stype, etype, rescaling, maxit) {
   # etype
   if (etype == "free") {
     cat("[", format(Sys.time()), "]", " - Rescaling 'etype = free' kernel\n", sep = "")
-    for (k in seq_len(df - 1)) {
+    for (k in seq_len(K0 - 1)) {
       K3 <- diag(Z[, k]^2) # I * (Zk Zk^T)
       # K3 <- check_K(K3, X)
       w	<- mean(diag(K3))
@@ -100,6 +100,7 @@ fitlmm <- function(y, X, K, Z, df, stype, etype, rescaling, maxit) {
   fit <- qgg::greml(y = y, X = X, GRM = K_list, maxit = maxit)
   vc <- fit$theta
   asd <- fit$asd
+  df <- length(K_list)
   
   # rescaling
   # TO DO: we need to check the rescaling
@@ -112,7 +113,11 @@ fitlmm <- function(y, X, K, Z, df, stype, etype, rescaling, maxit) {
   # summary res
   summary_sig2 <- summary_res(vc, asd, df, Z, stype, etype)
   
-  return(list(sig2s = summary_sig2$sig2s, sig2e = summary_sig2$sig2e, vc = summary_sig2$vc, asd = asd, ll = fit$ll, beta = fit$b, v_beta = fit$vb, stype = stype, etype = etype))
+  return(list(
+    sig2s = summary_sig2$sig2s, sig2e = summary_sig2$sig2e, vc = summary_sig2$vc,
+    asd = asd, ll = fit$ll, df = df, beta = fit$b, v_beta = fit$vb, 
+    stype = stype, etype = etype
+  ))
 }
 
 
@@ -120,9 +125,11 @@ cal_cov <- function(res_fit, df, Z, stype) {
   sig2out <- sig2map(res_fit$vc, res_fit$stype, res_fit$etype, df)
   h2Covmat <- msm::deltamethod(sig2out$form, res_fit$vc, res_fit$asd, ses = FALSE)
   h2 <- sig2out$h2
-  
+
   if (stype == "hom") {
     names(h2) <- "h2"
+  } else if (stype == "iid") {
+    names(h2) <- c("h2_0", "h2")
   } else {
     names(h2) <- paste0("h2_", colnames(Z))
   }
@@ -157,22 +164,23 @@ cal_h2_p <- function(res_h2, stype) {
   return(p)
 }
 
-svglmm <- function(y, X, K, Z, stype = c('hom', 'iid', 'free')[1], etype = c('hom', 'free')[1], rescaling = TRUE, resfull = TRUE, maxit = 200) {
+svglmm <- function(y, X, K, Z, stype = c('hom', 'iid', 'free')[1], etype = c('hom', 'free')[1], rescaling = TRUE, resfull = TRUE, maxit = 100) {
   y <- as.matrix(scale(y))
   Z <- as.matrix(Z)
   X <- as.matrix(X)
   K <- as.matrix(K)
-  df <- ncol(Z)
+  K0 <- ncol(Z)
 
   stopifnot(all.equal(nrow(y), nrow(K)))
   stopifnot(all.equal(nrow(y), nrow(Z)))
 
   # fitting
   cat("[", format(Sys.time()), "]", " - Fitting liner mixed model\n", sep = "")
-  res_fit <- fitlmm(y, X, K, Z, df, stype, etype, rescaling, fitlmm)
+  res_fit <- fitlmm(y, X, K, Z, K0, stype, etype, rescaling, maxit)
   sig2s <- res_fit$sig2s
   vc <- res_fit$vc
   asd <- res_fit$asd
+  df <- res_fit$df
 
   # cal p value
   cat("[", format(Sys.time()), "]", " - Calulating p-value\n", sep = "")
