@@ -38,7 +38,7 @@ summary_res <- function(vc, asd, df, Z, stype, etype) {
       idx_w <- seq.int(from = (max(idx_v) + 1), to = length(vc) - 1)
 
       v <- vc[idx_v]
-      w <- c(vc[idx_w], 1) + vc[length(vc)]
+      w <- c(vc[idx_w], 0) + vc[length(vc)]
 
       names(v) <- paste0("sig2s_", colnames(Z))
       names(w) <- paste0("sig2e_", colnames(Z))
